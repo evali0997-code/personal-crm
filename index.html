@@ -29,7 +29,31 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(db));if(window.crmCl
 function toast(msg,err=false){const el=$('#toast');el.textContent=msg;el.className='toast'+(err?' error':'');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add('hidden'),3200)}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function attr(v){return esc(v).replace(/\n/g,' ')}function fmt(v){return v===undefined||v===null?'':String(v)}
-function ensureLabelClients(){if(Array.isArray(db.labelClients))return;const mapping={};const originals=(db.clients||[]).filter(c=>!c.archived);db.labelClients=originals.map((c,i)=>{const id='l'+(i+1);mapping[c.id]=id;return {...c,id,order:i+1}});db.nextLabelClient=originals.length+1;for(const date of Object.keys(db.labelDaily||{})){const old=db.labelDaily[date]||{},next={};for(const [id,value] of Object.entries(old))next[mapping[id]||id]=value;db.labelDaily[date]=next}const meta={};for(const [id,value] of Object.entries(db.labelMeta||{}))meta[mapping[id]||id]=value;db.labelMeta=meta}
+function ensureLabelClients(){
+ if(Array.isArray(db.labelClients)){
+   db.labelClients=db.labelClients.filter(c=>c&&typeof c.id==='string');
+   db.nextLabelClient=Math.max(Number(db.nextLabelClient)||1,1,...db.labelClients.map(c=>Number(String(c.id).replace(/^l/,''))||0).map(n=>n+1));
+   return;
+ }
+ // One-time migration of actual legacy label records only. Never clone the order customer list.
+ const legacyIds=new Set(Object.keys(db.labelMeta||{}));
+ for(const day of Object.values(db.labelDaily||{}))for(const id of Object.keys(day||{}))legacyIds.add(id);
+ const mapping={},existing=db.clients||[];
+ db.labelClients=[];
+ for(const oldId of legacyIds){
+   const source=existing.find(c=>c.id===oldId);
+   const id='l'+(db.labelClients.length+1);
+   mapping[oldId]=id;
+   db.labelClients.push({id,name:source?.name||'标签客户 '+(db.labelClients.length+1),order:db.labelClients.length+1,archived:false});
+ }
+ for(const date of Object.keys(db.labelDaily||{})){
+   const previous=db.labelDaily[date]||{},migrated={};
+   for(const [id,value] of Object.entries(previous))migrated[mapping[id]||id]=value;
+   db.labelDaily[date]=migrated;
+ }
+ const meta={};for(const [id,value] of Object.entries(db.labelMeta||{}))meta[mapping[id]||id]=value;
+ db.labelMeta=meta;db.nextLabelClient=db.labelClients.length+1;
+}
 ensureLabelClients();
 function labelClients(){ensureLabelClients();return db.labelClients.filter(c=>!c.archived).slice().sort((a,b)=>a.order-b.order)}
 function addLabelClient(name){name=name.trim();if(!name)return toast('请输入客户名称',true);if(labelClients().some(c=>c.name===name))return toast('标签客户已存在',true);db.labelClients.push({id:'l'+db.nextLabelClient++,name,order:db.labelClients.reduce((m,c)=>Math.max(m,c.order||0),0)+1,archived:false});save();render();toast('标签客户已添加')}
@@ -58,7 +82,7 @@ function excelPage(){const loaded=excel.headers.length>0;return `<div class="pan
 function excelDisplayRows(){let arr=excel.rows.map((values,i)=>({values,_index:i}));if(excel.filter){const q=excel.filter.toLowerCase();arr=arr.filter(r=>r.values.some(v=>String(v??'').toLowerCase().includes(q)))}if(excel.sort.col>=0){const {col,dir}=excel.sort;arr.sort((a,b)=>String(a.values[col]??'').localeCompare(String(b.values[col]??''),'zh-CN',{numeric:true,sensitivity:'base'})*dir)}return arr}
 function bindPage(){
 $$('[data-go]').forEach(e=>e.onclick=()=>go(e.dataset.go));
-if(page==='orders'||page==='labels'){let dragged=null;document.querySelectorAll('tbody tr[data-id]').forEach(tr=>{const grip=tr.querySelector('.clientname');if(!grip)return;grip.draggable=true;grip.title='按住拖动调整客户顺序';grip.ondragstart=e=>{dragged=tr.dataset.id;e.dataTransfer.setData('text/plain',dragged);e.dataTransfer.effectAllowed='move'};tr.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='move'};tr.ondrop=e=>{e.preventDefault();const target=tr.dataset.id;if(!dragged||target===dragged)return;const ordered=page==='labels'?labelClients():activeClients();const from=ordered.findIndex(c=>c.id===dragged),to=ordered.findIndex(c=>c.id===target);if(from<0||to<0)return;const [item]=ordered.splice(from,1);ordered.splice(to,0,item);ordered.forEach((c,i)=>c.order=i+1);save();render()}})}
+if(page==='orders'||page==='labels'){let dragged=null;document.querySelectorAll('tbody tr[data-id]').forEach(tr=>{const grip=tr.querySelector('.clientname');if(!grip)return;grip.draggable=true;grip.title='按住拖动调整客户顺序';grip.ondragstart=e=>{dragged=tr.dataset.id;e.dataTransfer.setData('text/plain',dragged);e.dataTransfer.effectAllowed='move'};tr.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='move'};tr.ondrop=e=>{e.preventDefault();const target=tr.dataset.id;if(!dragged||target===dragged)return;if((page==='labels'&&!dragged.startsWith('l'))||(page==='orders'&&!dragged.startsWith('c')))return;const ordered=page==='labels'?labelClients():activeClients();const from=ordered.findIndex(c=>c.id===dragged),to=ordered.findIndex(c=>c.id===target);if(from<0||to<0)return;const [item]=ordered.splice(from,1);ordered.splice(to,0,item);ordered.forEach((c,i)=>c.order=i+1);save();render()}})}
 const add=$('#addClient');if(add)add.onclick=()=>{(page==='labels'?addLabelClient:addClient)($('#newClient').value);if($('#newClient'))$('#newClient').value=''};
 $$('[data-rename]').forEach(b=>b.onclick=()=>{const c=db.clients.find(c=>c.id===b.dataset.rename);const n=prompt('修改客户名称',c?.name||'');if(n!==null)renameClient(b.dataset.rename,n)});
 const bindDaily=(kind,key)=>{const d=daily(kind);$$(`[data-${key}]`).forEach(el=>{const id=el.dataset.id,field=el.dataset[key];el.onchange=()=>{const old=d[id]||{};if(key==='order'&&field==='hasOrder'&&el.value==='no'){const has=Object.entries(old).some(([k,v])=>k!=='hasOrder'&&k!=='changeFlag'&&v!==''&&v!==undefined&&v!==null);if(has&&!confirm('切换为「无单」将清空该客户当天金额、斤数、完成情况、群消息、订单变化和处理状态。是否继续？')){render();return}d[id]={hasOrder:'no'};}else if(key==='label'&&field==='need'&&el.value==='no'){const has=Object.entries(old).some(([k,v])=>k!=='need'&&v!==''&&v!==undefined&&v!==null);if(has&&!confirm('切换为「不需要打标签」将清空该客户当天张数和金额。是否继续？')){render();return}d[id]={need:'no'};}else{if(!d[id])d[id]={};d[id][field]=el.value;if(key==='order'&&field==='changeFlag'){d[id].changeStatus='';if(el.value==='no')d[id].change='';}if(key==='order'&&field==='hasOrder'&&el.value==='yes')d[id].hasOrder='yes';if(key==='label'&&field==='need'&&el.value==='yes')d[id].need='yes';}save();render()}})};
@@ -110,7 +134,7 @@ window.crmBridge={get:()=>JSON.parse(JSON.stringify(db)),set:(value)=>{db={...fr
     if(toggle){panel.style.display=panel.style.display==='none'?'block':'none';if(panel.style.display==='block')refresh();return}
     const btn=e.target.closest('[data-client-action]');
     if(!btn||!panel.contains(btn))return;
-    const id=btn.dataset.clientId,kind=page==='labels'?'labels':'orders',list=kind==='labels'?db.labelClients:db.clients,c=list.find(x=>x.id===id);
+    const id=btn.dataset.clientId,kind=id.startsWith('l')?'labels':id.startsWith('c')?'orders':null;if(!kind||((page==='labels')!==(kind==='labels')))return;const list=kind==='labels'?db.labelClients:db.clients,c=list.find(x=>x.id===id);
     if(!c)return;
     if(btn.dataset.clientAction==='rename'){
       const name=prompt('修改客户名称',c.name);
