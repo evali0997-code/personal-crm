@@ -1,481 +1,56 @@
-<!DOCTYPE html>﻿
-<html lang="zh-CN">﻿
-<head>﻿
-    <meta charset="UTF-8">﻿
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">﻿
-    <title>跟单文员 CRM 工作台</title>﻿
-    <!-- Tailwind CSS & SheetJS -->﻿
-    <script src="https://cdn.tailwindcss.com"></script>﻿
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>﻿
-    <style>﻿
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }﻿
-        .table-container { max-height: 600px; overflow-y: auto; }﻿
-        th { position: sticky; top: 0; z-index: 10; }﻿
-    </style>﻿
-</head>﻿
-<body class="bg-gray-100 text-gray-800 flex h-screen overflow-hidden">﻿
 
-    <!-- 左侧导航 -->﻿
-    <aside class="w-60 bg-slate-900 text-slate-300 flex flex-col justify-between border-r border-slate-800 flex-shrink-0">﻿
-        <div>﻿
-            <div class="p-5 border-b border-slate-800">﻿
-                <h1 class="text-base font-bold text-white tracking-wide">跟单文员 CRM</h1>﻿
-                <p class="text-xs text-slate-400 mt-1">猪肉加工厂专属工作台</p>﻿
-            </div>﻿
-            <nav class="p-3 space-y-1">﻿
-                <button onclick="switchTab('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition hover:bg-slate-800 text-slate-300" data-target="dashboard">📊 工作台首页</button>﻿
-                <button onclick="switchTab('excel')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition hover:bg-slate-800 text-slate-300" data-target="excel">📁 Excel 处理</button>﻿
-                <button onclick="switchTab('orders')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition hover:bg-slate-800 text-slate-300" data-target="orders">📋 客户录单跟进</button>﻿
-                <button onclick="switchTab('labels')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition hover:bg-slate-800 text-slate-300" data-target="labels">🏷️ 标签跟进</button>﻿
-                <button onclick="switchTab('products')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition hover:bg-slate-800 text-slate-300" data-target="products">🔍 品名查询</button>﻿
-                <button onclick="switchTab('workflow')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition hover:bg-slate-800 text-slate-300" data-target="workflow">✅ 今日流程核对</button>﻿
-            </nav>﻿
-        </div>﻿
-        <div class="p-3 border-t border-slate-800 text-[11px] text-slate-500 text-center">数据存至本地浏览器</div>﻿
-    </aside>﻿
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人跟单 CRM</title>
+  <style>
+    body {
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+      background: #f4f6fa;
+      margin: 0;
+      color: #253047;
+    }
+    header {
+      background: #315be8;
+      color: white;
+      padding: 24px;
+    }
+    main {
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px #00000010;
+    }
+    button {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 8px;
+      background: #315be8;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>个人跟单 CRM</h1>
+    <p>客户管理 · 订单跟进 · 每日核对</p>
+  </header>
 
-    <!-- 主主体 -->﻿
-    <main class="flex-1 flex flex-col h-full overflow-hidden min-w-0">﻿
-        <!-- 顶栏 -->﻿
-        <header class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm flex-shrink-0">﻿
-            <div class="flex items-center gap-3">﻿
-                <label class="text-xs font-bold text-gray-700">当前工作日期：</label>﻿
-                <input type="date" id="global-date" class="border border-gray-300 rounded px-2 py-1 text-xs font-semibold focus:ring-2 focus:ring-blue-500" onchange="handleDateChange()">﻿
-            </div>﻿
-            <div class="flex items-center gap-2">﻿
-                <button onclick="clearDailyData()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1 rounded text-xs font-medium transition">清空当日数据</button>﻿
-                <button onclick="exportAllData()" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-3 py-1 rounded text-xs font-medium transition">备份/导出数据</button>﻿
-            </div>﻿
-        </header>﻿
-
-        <!-- 内容视图区 -->﻿
-        <div class="flex-1 overflow-y-auto p-6">﻿
-
-            <!-- 1. 工作台首页 -->﻿
-            <section id="view-dashboard" class="tab-view space-y-4">﻿
-                <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-200">﻿
-                    <h2 class="text-lg font-bold text-gray-800">👋 欢迎回来，今日工作概况</h2>﻿
-                    <p class="text-xs text-gray-500 mt-1">日期：<span id="dash-date-display" class="font-semibold text-gray-700"></span></p>﻿
-                </div>﻿
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">﻿
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200 hover:border-blue-500 cursor-pointer transition" onclick="switchTab('orders')">﻿
-                        <h3 class="text-xs font-semibold text-gray-500">客户录单完成度</h3>﻿
-                        <p id="dash-orders-stat" class="text-xl font-bold text-gray-800 mt-1">0 / 0</p>﻿
-                        <span class="text-[11px] text-blue-600 mt-2 block">进入录单管理 &rarr;</span>﻿
-                    </div>﻿
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200 hover:border-blue-500 cursor-pointer transition" onclick="switchTab('labels')">﻿
-                        <h3 class="text-xs font-semibold text-gray-500">标签跟进待处理</h3>﻿
-                        <p id="dash-labels-stat" class="text-xl font-bold text-gray-800 mt-1">0 项</p>﻿
-                        <span class="text-[11px] text-blue-600 mt-2 block">进入标签管理 &rarr;</span>﻿
-                    </div>﻿
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200 hover:border-blue-500 cursor-pointer transition" onclick="switchTab('workflow')">﻿
-                        <h3 class="text-xs font-semibold text-gray-500">今日流程核对进度</h3>﻿
-                        <p id="dash-workflow-stat" class="text-xl font-bold text-gray-800 mt-1">0 / 7</p>﻿
-                        <span class="text-[11px] text-blue-600 mt-2 block">进入流程核对 &rarr;</span>﻿
-                    </div>﻿
-                </div>﻿
-            </section>﻿
-
-            <!-- 2. Excel 处理 -->﻿
-            <section id="view-excel" class="tab-view space-y-4 hidden">﻿
-                <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200 flex justify-between items-center">﻿
-                    <h2 class="text-sm font-bold text-gray-800">📁 Excel 数据导入与处理</h2>﻿
-                    <div class="flex items-center gap-3">﻿
-                        <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="border border-gray-300 rounded p-1 text-xs" onchange="handleExcelUpload(event)">﻿
-                        <button onclick="exportExcelData()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium">导出处理后表格</button>﻿
-                    </div>﻿
-                </div>﻿
-                <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200 overflow-x-auto">﻿
-                    <div id="excel-table-container" class="text-xs text-gray-400 text-center py-8">请先选择 Excel 或 CSV 文件</div>﻿
-                </div>﻿
-            </section>﻿
-
-            <!-- 3. 客户录单跟进 -->﻿
-            <section id="view-orders" class="tab-view space-y-4 hidden">﻿
-                <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200 flex justify-between items-center">﻿
-                    <div>﻿
-                        <h2 class="text-sm font-bold text-gray-800">📋 客户录单跟进看板</h2>﻿
-                        <p class="text-[11px] text-gray-500 mt-0.5">选择“有单”客户会自动排在顶部，未填写项目将以 ❗ 高亮提醒。</p>﻿
-                    </div>﻿
-                    <div class="flex gap-2">﻿
-                        <input type="text" id="new-customer-name" placeholder="客户名称..." class="border border-gray-300 rounded px-2 py-1 text-xs w-36">﻿
-                        <button onclick="addCustomer()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium">新增客户</button>﻿
-                    </div>﻿
-                </div>﻿
-
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">﻿
-                    <div class="table-container">﻿
-                        <table class="w-full text-left border-collapse whitespace-nowrap">﻿
-                            <thead>﻿
-                                <tr class="bg-slate-100 border-b border-gray-300 text-xs font-bold text-gray-700">﻿
-                                    <th class="p-3 w-32 border-r bg-slate-100">客户名称</th>﻿
-                                    <th class="p-3 w-24 border-r bg-slate-100">是否有单</th>﻿
-                                    <th class="p-3 w-28 border-r bg-slate-100">总金额 (元)</th>﻿
-                                    <th class="p-3 w-28 border-r bg-slate-100">总斤数</th>﻿
-                                    <th class="p-3 w-28 border-r bg-slate-100">完成情况</th>﻿
-                                    <th class="p-3 w-28 border-r bg-slate-100">群消息状态</th>﻿
-                                    <th class="p-3 w-40 border-r bg-slate-100">订单变化</th>﻿
-                                    <th class="p-3 w-36 border-r bg-slate-100">更改且对接沟通</th>﻿
-                                    <th class="p-3 w-16 text-center bg-slate-100">操作</th>﻿
-                                </tr>﻿
-                            </thead>﻿
-                            <tbody id="orders-table-body" class="divide-y divide-gray-200 text-xs">﻿
-                                <!-- 动态插入 -->﻿
-                            </tbody>﻿
-                            <!-- 底部合计栏 -->﻿
-                            <tfoot>﻿
-                                <tr class="bg-slate-200 font-bold text-xs text-gray-800 border-t-2 border-gray-300">﻿
-                                    <td class="p-3 border-r">今日合计 (有单)</td>﻿
-                                    <td class="p-3 border-r" id="sum-count">0 家</td>﻿
-                                    <td class="p-3 border-r text-blue-700" id="sum-amount">￥0.00</td>﻿
-                                    <td class="p-3 border-r text-blue-700" id="sum-weight">0 斤</td>﻿
-                                    <td class="p-3 border-r" colspan="5"></td>﻿
-                                </tr>﻿
-                            </tfoot>﻿
-                        </table>﻿
-                    </div>﻿
-                </div>﻿
-            </section>﻿
-
-            <!-- 4. 标签跟进 -->﻿
-            <section id="view-labels" class="tab-view space-y-4 hidden">﻿
-                <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200">﻿
-                    <h2 class="text-sm font-bold text-gray-800">🏷️ 标签跟进看板</h2>﻿
-                    <p class="text-[11px] text-gray-500 mt-0.5">与录单看板共用客户名单。打印类型与备注长期自动保留。</p>﻿
-                </div>﻿
-
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">﻿
-                    <div class="table-container">﻿
-                        <table class="w-full text-left border-collapse whitespace-nowrap">﻿
-                            <thead>﻿
-                                <tr class="bg-slate-100 border-b border-gray-300 text-xs font-bold text-gray-700">﻿
-                                    <th class="p-3 w-32 border-r bg-slate-100">客户名称</th>﻿
-                                    <th class="p-3 w-32 border-r bg-slate-100">标签跟进</th>﻿
-                                    <th class="p-3 w-28 border-r bg-slate-100">张数</th>﻿
-                                    <th class="p-3 w-28 border-r bg-slate-100">金额</th>﻿
-                                    <th class="p-3 w-40 border-r bg-slate-100">打印类型 (长期)</th>﻿
-                                    <th class="p-3 border-r bg-slate-100">备注 (长期)</th>﻿
-                                </tr>﻿
-                            </thead>﻿
-                            <tbody id="labels-table-body" class="divide-y divide-gray-200 text-xs">﻿
-                                <!-- 动态插入 -->﻿
-                            </tbody>﻿
-                        </table>﻿
-                    </div>﻿
-                </div>﻿
-            </section>﻿
-
-            <!-- 5. 品名查询 -->﻿
-            <section id="view-products" class="tab-view space-y-4 hidden">﻿
-                <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200 space-y-3">﻿
-                    <h2 class="text-sm font-bold text-gray-800">🔍 品名与客户别名对照查询库</h2>﻿
-                    <div class="flex gap-3 items-center">﻿
-                        <input type="text" id="product-search-input" placeholder="输入客户名、标准品名或别名查询..." class="flex-1 border border-gray-300 rounded px-3 py-1.5 text-xs" oninput="renderProductTable()">﻿
-                        <input type="file" id="product-import-file" accept=".xlsx, .xls, .csv" class="hidden" onchange="importProductFile(event)">﻿
-                        <button onclick="document.getElementById('product-import-file').click()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-xs font-medium">📥 导入原始资料</button>﻿
-                        <button onclick="openProductModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium">+ 手动新增记录</button>﻿
-                    </div>﻿
-                </div>﻿
-
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">﻿
-                    <div class="table-container">﻿
-                        <table class="w-full text-left border-collapse text-xs">﻿
-                            <thead>﻿
-                                <tr class="bg-slate-100 border-b border-gray-300 font-bold text-gray-700">﻿
-                                    <th class="p-3 w-36 border-r bg-slate-100">客户名称</th>﻿
-                                    <th class="p-3 w-40 border-r bg-slate-100">标准产品名称</th>﻿
-                                    <th class="p-3 w-48 border-r bg-slate-100">客户实际使用品名/别名</th>﻿
-                                    <th class="p-3 border-r bg-slate-100">备注原文</th>﻿
-                                    <th class="p-3 w-16 text-center bg-slate-100">操作</th>﻿
-                                </tr>﻿
-                            </thead>﻿
-                            <tbody id="products-table-body" class="divide-y divide-gray-200">﻿
-                                <!-- 动态插入 -->﻿
-                            </tbody>﻿
-                        </table>﻿
-                    </div>﻿
-                </div>﻿
-            </section>﻿
-
-            <!-- 6. 今日流程核对 -->﻿
-            <section id="view-workflow" class="tab-view space-y-4 hidden">﻿
-                <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200 flex justify-between items-center">﻿
-                    <div>﻿
-                        <h2 class="text-sm font-bold text-gray-800">✅ 今日流程核对</h2>﻿
-                        <p id="workflow-progress-text" class="text-xs text-blue-600 font-semibold mt-0.5">已完成 0 / 7 项</p>﻿
-                    </div>﻿
-                    <div class="flex gap-2">﻿
-                        <button onclick="resetWorkflowToday()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-xs font-medium">全部重置</button>﻿
-                        <button onclick="addWorkflowTaskModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium">+ 新增固定任务</button>﻿
-                    </div>﻿
-                </div>﻿
-
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">﻿
-                    <div id="workflow-tasks-container" class="space-y-2">﻿
-                        <!-- 动态渲染对齐的卡片列表 -->﻿
-                    </div>﻿
-                </div>﻿
-            </section>﻿
-
-        </div>﻿
-    </main>﻿
-
-    <!-- 品名弹窗 -->﻿
-    <div id="product-modal" class="fixed inset-0 bg-black/40 hidden flex items-center justify-center z-50">﻿
-        <div class="bg-white rounded-lg p-5 w-full max-w-md space-y-3 shadow-lg">﻿
-            <h3 class="text-sm font-bold text-gray-800">新增品名对照资料</h3>﻿
-            <div class="space-y-2 text-xs">﻿
-                <div><label class="font-semibold text-gray-600">客户名称</label><input type="text" id="modal-cust-name" class="w-full border border-gray-300 rounded p-1.5 mt-1"></div>﻿
-                <div><label class="font-semibold text-gray-600">标准产品名称</label><input type="text" id="modal-std-name" class="w-full border border-gray-300 rounded p-1.5 mt-1"></div>﻿
-                <div><label class="font-semibold text-gray-600">客户实际使用的品名或别名</label><input type="text" id="modal-alias-name" class="w-full border border-gray-300 rounded p-1.5 mt-1"></div>﻿
-                <div><label class="font-semibold text-gray-600">备注原文</label><textarea id="modal-remark" class="w-full border border-gray-300 rounded p-1.5 mt-1 h-16"></textarea></div>﻿
-            </div>﻿
-            <div class="flex justify-end gap-2 pt-2">﻿
-                <button onclick="closeProductModal()" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs">取消</button>﻿
-                <button onclick="saveProductRecord()" class="px-3 py-1.5 bg-blue-600 text-white rounded text-xs">保存</button>﻿
-            </div>﻿
-        </div>﻿
-    </div>﻿
-
-    <!-- 逻辑脚本 -->﻿
-    <script>﻿
-        let currentDate = new Date().toISOString().split('T')[0];﻿
-        document.getElementById('global-date').value = currentDate;﻿
-        document.getElementById('dash-date-display').innerText = currentDate;﻿
-
-        let appData = {﻿
-            customers: JSON.parse(localStorage.getItem('crm_customers')) || [﻿
-                { id: 'c1', name: '喜家德' }, { id: 'c2', name: '沙湾' }, { id: 'c3', name: '中味' }, { id: 'c4', name: '亦成' }﻿
-            ],﻿
-            customerMeta: JSON.parse(localStorage.getItem('crm_customer_meta')) || {﻿
-                'c1': { printType: '标准标签', remark: '长期稳定' },﻿
-                'c2': { printType: '大字号标签', remark: '注意分拣' },﻿
-                'c3': { printType: '中味专用', remark: '18:30前打标签' },﻿
-                'c4': { printType: '亦成专用', remark: '19:30打标签' }﻿
-            },﻿
-            products: JSON.parse(localStorage.getItem('crm_products')) || [﻿
-                { id: 'p1', customer: '喜家德', stdName: '前腿肉', alias: '优质前腿肉片', remark: '切片厚度5mm' }﻿
-            ],﻿
-            workflowTasks: JSON.parse(localStorage.getItem('crm_workflow_tasks')) || [﻿
-                { id: 'w1', title: '发送沙湾销售单，填充喜家德和沙湾', time: '' },﻿
-                { id: 'w2', title: '按顺序录单', time: '' },﻿
-                { id: 'w3', title: '18:30 打中味标签，录入', time: '18:30' },﻿
-                { id: 'w4', title: '19:30 打亦成标签，录入', time: '19:30' },﻿
-                { id: 'w5', title: '22:00 检查邮箱，确认改单标签', time: '22:00' },﻿
-                { id: 'w6', title: '打印销售总表带下楼，截图发群', time: '' },﻿
-                { id: 'w7', title: '做商品明细表发群', time: '' }﻿
-            ],﻿
-            dailyData: JSON.parse(localStorage.getItem('crm_daily_data')) || {}﻿
-        };﻿
-
-        function saveData() {﻿
-            localStorage.setItem('crm_customers', JSON.stringify(appData.customers));﻿
-            localStorage.setItem('crm_customer_meta', JSON.stringify(appData.customerMeta));﻿
-            localStorage.setItem('crm_products', JSON.stringify(appData.products));﻿
-            localStorage.setItem('crm_workflow_tasks', JSON.stringify(appData.workflowTasks));﻿
-            localStorage.setItem('crm_daily_data', JSON.stringify(appData.dailyData));﻿
-            updateDashboardStats();﻿
-        }﻿
-
-        function getDaily(dateStr) {﻿
-            if (!appData.dailyData[dateStr]) appData.dailyData[dateStr] = { orders: {}, labels: {}, workflow: {} };﻿
-            return appData.dailyData[dateStr];﻿
-        }﻿
-
-        function switchTab(tabId) {﻿
-            document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));﻿
-            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('bg-slate-800', 'text-white'));﻿
-            document.getElementById(`view-${tabId}`).classList.remove('hidden');﻿
-            const activeBtn = document.querySelector(`[data-target="${tabId}"]`);﻿
-            if (activeBtn) activeBtn.classList.add('bg-slate-800', 'text-white');﻿
-
-            if (tabId === 'orders') renderOrdersTable();﻿
-            if (tabId === 'labels') renderLabelsTable();﻿
-            if (tabId === 'products') renderProductTable();﻿
-            if (tabId === 'workflow') renderWorkflowTable();﻿
-            if (tabId === 'dashboard') updateDashboardStats();﻿
-        }﻿
-
-        function handleDateChange() {﻿
-            currentDate = document.getElementById('global-date').value;﻿
-            document.getElementById('dash-date-display').innerText = currentDate;﻿
-            refreshCurrentTab();﻿
-        }﻿
-
-        function refreshCurrentTab() {﻿
-            const activeTab = document.querySelector('.tab-view:not(.hidden)').id.replace('view-', '');﻿
-            switchTab(activeTab);﻿
-        }﻿
-
-        function updateDashboardStats() {﻿
-            const daily = getDaily(currentDate);﻿
-            let totalCust = appData.customers.length;﻿
-            let orderedCount = 0, labelPendingCount = 0;﻿
-
-            appData.customers.forEach(c => {﻿
-                const o = daily.orders[c.id] || {};﻿
-                if (o.hasOrder === 'yes') orderedCount++;﻿
-                const l = daily.labels[c.id] || {};﻿
-                if (l.needLabel === 'yes' && (!l.count || !l.amount)) labelPendingCount++;﻿
-            });﻿
-
-            document.getElementById('dash-orders-stat').innerText = `${orderedCount} / ${totalCust} 家`;﻿
-            document.getElementById('dash-labels-stat').innerText = `${labelPendingCount} 项未填`;﻿
-
-            let wfCount = 0;﻿
-            appData.workflowTasks.forEach(t => { if (daily.workflow[t.id]) wfCount++; });﻿
-            document.getElementById('dash-workflow-stat').innerText = `${wfCount} / ${appData.workflowTasks.length}`;﻿
-        }﻿
-
-        // 渲染录单看板﻿
-        function renderOrdersTable() {﻿
-            const tbody = document.getElementById('orders-table-body');﻿
-            tbody.innerHTML = '';﻿
-            const daily = getDaily(currentDate);﻿
-
-            let sumAmount = 0;﻿
-            let sumWeight = 0;﻿
-            let orderedCustCount = 0;﻿
-
-            // 排序：有单居前﻿
-            let sortedCust = [...appData.customers].sort((a, b) => {﻿
-                let aHas = (daily.orders[a.id] || {}).hasOrder === 'yes' ? 1 : 0;﻿
-                let bHas = (daily.orders[b.id] || {}).hasOrder === 'yes' ? 1 : 0;﻿
-                return bHas - aHas;﻿
-            });﻿
-
-            sortedCust.forEach(c => {﻿
-                let o = daily.orders[c.id] || { hasOrder: '', amount: '', weight: '', status: '', msg: '', changeText: '', changeStatus: '' };﻿
-                let isOrdered = o.hasOrder === 'yes';﻿
-
-                if (isOrdered) {﻿
-                    orderedCustCount++;﻿
-                    sumAmount += parseFloat(o.amount || 0);﻿
-                    sumWeight += parseFloat(o.weight || 0);﻿
-                }﻿
-
-                // 自动感叹号判断逻辑﻿
-                let amountAlert = isOrdered && (!o.amount || o.amount === '');﻿
-                let weightAlert = isOrdered && (!o.weight || o.weight === '');﻿
-                let statusAlert = isOrdered && (!o.status || o.status === '' || o.status === 'pending');﻿
-                let msgAlert = isOrdered && (!o.msg || o.msg === '');﻿
-                let changeAlert = o.changeText && o.changeText.trim() !== '' && (!o.changeStatus || o.changeStatus === 'pending');﻿
-
-                let tr = document.createElement('tr');﻿
-                tr.className = `hover:bg-blue-50/50 ${isOrdered ? 'bg-amber-50/20' : ''}`;﻿
-                tr.innerHTML = `﻿
-                    <td class="p-3 font-semibold text-gray-800 border-r text-xs whitespace-nowrap">${c.name}</td>﻿
-                    <td class="p-3 border-r">﻿
-                        <select onchange="updateOrderField('${c.id}', 'hasOrder', this.value)" class="border rounded px-2 py-1 text-xs w-full font-medium">﻿
-                            <option value="">-- 请选择 --</option>﻿
-                            <option value="yes" ${o.hasOrder === 'yes' ? 'selected' : ''}>有单</option>﻿
-                            <option value="no" ${o.hasOrder === 'no' ? 'selected' : ''}>无单</option>﻿
-                        </select>﻿
-                    </td>﻿
-                    <td class="p-3 border-r">﻿
-                        <div class="flex items-center gap-1">﻿
-                            <input type="number" ${!isOrdered ? 'disabled' : ''} value="${o.amount}" onchange="updateOrderField('${c.id}', 'amount', this.value)" placeholder="金额" class="border rounded px-2 py-1 text-xs w-20 ${amountAlert ? 'border-red-500 bg-red-50' : ''}">﻿
-                            ${amountAlert ? '<span class="text-red-500 font-bold">❗</span>' : ''}﻿
-                        </div>﻿
-                    </td>﻿
-                    <td class="p-3 border-r">﻿
-                        <div class="flex items-center gap-1">﻿
-                            <input type="number" ${!isOrdered ? 'disabled' : ''} value="${o.weight}" onchange="updateOrderField('${c.id}', 'weight', this.value)" placeholder="斤数" class="border rounded px-2 py-1 text-xs w-20 ${weightAlert ? 'border-red-500 bg-red-50' : ''}">﻿
-                            ${weightAlert ? '<span class="text-red-500 font-bold">❗</span>' : ''}﻿
-                        </div>﻿
-                    </td>﻿
-                    <td class="p-3 border-r">﻿
-                        <div class="flex items-center gap-1">﻿
-                            <select ${!isOrdered ? 'disabled' : ''} onchange="updateOrderField('${c.id}', 'status', this.value)" class="border rounded px-1.5 py-1 text-xs ${statusAlert ? 'border-red-500 bg-red-50' : ''}">﻿
-                                <option value="">--</option>﻿
-                                <option value="completed" ${o.status === 'completed' ? 'selected' : ''}>✅ 已完成</option>﻿
-                                <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>❗ 未完成</option>﻿
-                            </select>﻿
-                            ${statusAlert ? '<span class="text-red-500 font-bold">❗</span>' : ''}﻿
-                        </div>﻿
-                    </td>﻿
-                    <td class="p-3 border-r">﻿
-                        <div class="flex items-center gap-1">﻿
-                            <select ${!isOrdered ? 'disabled' : ''} onchange="updateOrderField('${c.id}', 'msg', this.value)" class="border rounded px-1.5 py-1 text-xs ${msgAlert ? 'border-red-500 bg-red-50' : ''}">﻿
-                                <option value="">--</option>﻿
-                                <option value="received" ${o.msg === 'received' ? 'selected' : ''}>✅ 已收到</option>﻿
-                                <option value="none" ${o.msg === 'none' ? 'selected' : ''}>❌ 未收到</option>﻿
-                            </select>﻿
-                            ${msgAlert ? '<span class="text-red-500 font-bold">❗</span>' : ''}﻿
-                        </div>﻿
-                    </td>﻿
-                    <td class="p-3 border-r">﻿
-                        <input type="text" value="${o.changeText || ''}" onchange="updateOrderField('${c.id}', 'changeText', this.value)" placeholder="无变化可留空" class="border rounded px-2 py-1 text-xs w-32">﻿
-                    </td>﻿
-                    <td class="p-3 border-r">﻿
-                        ${o.changeText ? `﻿
-                            <div class="flex items-center gap-1">﻿
-                                <select onchange="updateOrderField('${c.id}', 'changeStatus', this.value)" class="border rounded px-1.5 py-1 text-xs ${changeAlert ? 'border-red-500 bg-red-50' : ''}">﻿
-                                    <option value="">-- 请选择 --</option>﻿
-                                    <option value="completed" ${o.changeStatus === 'completed' ? 'selected' : ''}>✅ 已完成</option>﻿
-                                    <option value="pending" ${o.changeStatus === 'pending' ? 'selected' : ''}>❗ 未完成</option>﻿
-                                </select>﻿
-                                ${changeAlert ? '<span class="text-red-500 font-bold">❗</span>' : ''}﻿
-                            </div>﻿
-                        ` : '<span class="text-gray-400">无变更</span>'}﻿
-                    </td>﻿
-                    <td class="p-3 text-center">﻿
-                        <button onclick="deleteCustomer('${c.id}')" class="text-red-500 hover:text-red-700 text-xs">删除</button>﻿
-                    </td>﻿
-                `;﻿
-                tbody.appendChild(tr);﻿
-            });﻿
-
-            // 统计更新﻿
-            document.getElementById('sum-count').innerText = `${orderedCustCount} 家`;﻿
-            document.getElementById('sum-amount').innerText = `￥${sumAmount.toFixed(2)}`;﻿
-            document.getElementById('sum-weight').innerText = `${sumWeight.toFixed(2)} 斤`;﻿
-        }﻿
-
-        function updateOrderField(custId, field, val) {﻿
-            const daily = getDaily(currentDate);﻿
-            if (!daily.orders[custId]) daily.orders[custId] = {};﻿
-
-            if (field === 'hasOrder' && val === 'no') {﻿
-                if (confirm('切换为“无单”将清除该客户今日已填的金额和状态，是否确认？')) {﻿
-                    daily.orders[custId] = { hasOrder: 'no' };﻿
-                } else {﻿
-                    renderOrdersTable(); return;﻿
-                }﻿
-            } else {﻿
-                daily.orders[custId][field] = val;﻿
-            }﻿
-            saveData();﻿
-            renderOrdersTable();﻿
-        }﻿
-
-        function addCustomer() {﻿
-            const name = document.getElementById('new-customer-name').value.trim();﻿
-            if (!name) return alert('请输入客户名称');﻿
-            const newId = 'c_' + Date.now();﻿
-            appData.customers.push({ id: newId, name });﻿
-            appData.customerMeta[newId] = { printType: '标准标签', remark: '' };﻿
-            document.getElementById('new-customer-name').value = '';﻿
-            saveData(); renderOrdersTable();﻿
-        }﻿
-
-        function deleteCustomer(custId) {﻿
-            if (confirm('确认删除该客户及其所有相关资料吗？')) {﻿
-                appData.customers = appData.customers.filter(c => c.id !== custId);﻿
-                delete appData.customerMeta[custId];﻿
-                saveData(); renderOrdersTable();﻿
-            }﻿
-        }﻿
-
-        // 渲染标签跟进﻿
-        function renderLabelsTable() {﻿
-            const tbody = document.getElementById('labels-table-body');﻿
-            tbody.innerHTML = '';﻿
-            const daily = getDaily(currentDate);﻿
-
-            appData.customers.forEach(c => {﻿
-                let l = daily.labels[c.id] || { needLabel: 'no', count: '', amount: '' };﻿
-                let meta = appData.customerMeta[c.id] || { printType: '标准标签', remark: '' };﻿
-                let needAlert = l.needLabel === 'yes' && (!l.count || !l.amount);﻿
-
-                let tr = docume
+  <main>
+    <div class="card">
+      <h2>欢迎使用个人跟单 CRM</h2>
+      <p>CRM 网页基础框架已经建立。</p>
+      <p>接下来添加客户、订单和每日核对功能。</p>
+    </div>
+  </main>
+</body>
+</html>
