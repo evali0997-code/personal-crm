@@ -15,7 +15,7 @@ tfoot th{background:#eaf0ff;color:#1c356c;font-weight:800;border-top:2px solid #
 <aside class="sidebar"><div class="brand">跟单文员工作台<small>个人 CRM · 本地数据版</small></div><nav class="nav" id="nav">
 <button class="active" data-page="home">▦　工作台</button><button data-page="excel">▤　Excel 处理</button><button data-page="orders">☷　客户录单跟进</button><button data-page="labels">▧　标签跟进</button><button data-page="names">⌕　品名查询</button><button data-page="tasks">✓　今日流程核对</button>
 </nav><div class="sidefoot">数据保存在当前浏览器<br>建议定期导出备份文件</div></aside>
-<main class="main"><header class="topbar"><div><div class="eyebrow" id="eyebrow">PERSONAL CRM WORKSPACE</div><div class="page-title" id="pageTitle">工作台</div><div class="sub" id="pageSub">查看今天的跟单、标签与流程进度。</div></div><div class="top-actions"><label class="smalltext" for="globalDate">工作日期</label><input class="date-input" type="date" id="globalDate"><button id="backupBtn">导出备份</button><label class="filelabel"><button id="restoreTrigger">导入备份</button><input type="file" id="restoreFile" accept="application/json"></label></div></header><div id="pageContent" class="content"></div></main>
+<main class="main"><header class="topbar"><div><div class="eyebrow" id="eyebrow">PERSONAL CRM WORKSPACE</div><div class="page-title" id="pageTitle">工作台</div><div class="sub" id="pageSub">查看今天的跟单、标签与流程进度。</div></div><div class="top-actions"><label class="smalltext" for="globalDate">工作日期</label><input class="date-input" type="date" id="globalDate"><button id="backupBtn">导出备份</button><label class="filelabel"><button id="restoreTrigger">导入备份</button><input type="file" id="restoreFile" accept="application/json"></label></div><div id="cloudControls" style="padding:6px 10px;font-size:12px"><span id="cloudState">云同步：未登录</span> <input id="cloudEmail" type="email" placeholder="邮箱（用于电脑/手机登录）" style="width:195px;padding:6px"> <button id="cloudLogin">发送登录邮件</button> <button id="cloudLogout" style="display:none">退出云端账号</button></div></header><div id="pageContent" class="content"></div></main>
 </div><div id="toast" class="toast hidden" role="status"></div>
 <script>
 (()=>{'use strict';
@@ -25,7 +25,7 @@ const fresh=()=>({version:1,clients:[],orderDaily:{},labelDaily:{},labelMeta:{},
 let db=load(),page='home',workDate=today(),excel={name:'',sheetName:'',sheets:[],headers:[],rows:[],originalRows:[],hidden:[],widths:{},selected:new Set(),undo:[],issues:[],sort:{col:-1,dir:1},filter:'',mapping:{},dirty:false};
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 function load(){try{const s=localStorage.getItem(KEY);if(!s)return fresh();const x=JSON.parse(s);return {...fresh(),...x}}catch(e){return fresh()}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(db));return true}catch(e){toast('本地存储失败：浏览器空间可能已满。请先导出备份。',true);return false}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db));if(window.crmCloudSave)window.crmCloudSave();return true}catch(e){toast('本地存储失败：浏览器空间可能已满。请先导出备份。',true);return false}}
 function toast(msg,err=false){const el=$('#toast');el.textContent=msg;el.className='toast'+(err?' error':'');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add('hidden'),3200)}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function attr(v){return esc(v).replace(/\n/g,' ')}function fmt(v){return v===undefined||v===null?'':String(v)}
@@ -90,6 +90,10 @@ function restore(e){const f=e.target.files[0];if(!f)return;const reader=new File
 function bindHome(){const b=$('#clearDay');if(b)b.onclick=()=>{if(confirm(`确定清空 ${workDate} 的工作区？将清除当天录单、标签和流程勾选状态；不会删除客户名单、标签备注、打印类型、品名资料、固定任务和其他日期历史。`)){delete db.orderDaily[workDate];delete db.labelDaily[workDate];delete db.taskDaily[workDate];save();render();toast('当日工作区已清空')}}}
 // Keep rerenders scoped and wire module-specific controls after drawing.
 const baseRender=render;render=function(){baseRender();bindPage();};
+window.crmBridge={get:()=>JSON.parse(JSON.stringify(db)),set:(value)=>{db={...fresh(),...value};localStorage.setItem(KEY,JSON.stringify(db));render()},backup:()=>{const raw=localStorage.getItem(KEY);if(raw)localStorage.setItem(KEY+'_before_cloud_'+Date.now(),raw)},resetDaily:(date)=>{db.orderDaily={};db.labelDaily={};db.taskDaily={};workDate=date;save();render()}};
 $('#globalDate').value=workDate;render();
 })();
-</script></body></html>
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="./cloud-sync.js"></script>
+</body></html>
