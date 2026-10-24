@@ -110,17 +110,15 @@ window.crmBridge={get:()=>JSON.parse(JSON.stringify(db)),set:(value)=>{db={...fr
     if(toggle){panel.style.display=panel.style.display==='none'?'block':'none';if(panel.style.display==='block')refresh();return}
     const btn=e.target.closest('[data-client-action]');
     if(!btn||!panel.contains(btn))return;
-    const id=btn.dataset.clientId,c=db.clients.find(x=>x.id===id);
+    const id=btn.dataset.clientId,kind=page==='labels'?'labels':'orders',list=kind==='labels'?db.labelClients:db.clients,c=list.find(x=>x.id===id);
     if(!c)return;
     if(btn.dataset.clientAction==='rename'){
       const name=prompt('修改客户名称',c.name);
       if(name===null)return;
-      renameClient(id,name);
+      if(kind==='orders')renameClient(id,name);else{const trimmed=name.trim();if(!trimmed)return toast('客户名称不能为空',true);if(db.labelClients.some(x=>x.id!==id&&!x.archived&&x.name===trimmed))return toast('标签客户名称已存在',true);c.name=trimmed;save();render();toast('标签客户名称已保存')}
     }else{
-      if(!confirm('确认删除客户「'+c.name+'」？删除后该客户将从客户列表及录单、标签看板中移除。'))return;
-      db.clients=db.clients.filter(x=>x.id!==id);
-      for(const kind of ['orderDaily','labelDaily'])for(const date of Object.keys(db[kind]||{}))if(db[kind][date])delete db[kind][date][id];
-      if(db.labelMeta)delete db.labelMeta[id];
+      if(!confirm('确认删除「'+c.name+'」？只删除当前工作台的客户，不影响另一工作台。'))return;
+      if(kind==='labels'){db.labelClients=db.labelClients.filter(x=>x.id!==id);for(const date of Object.keys(db.labelDaily||{}))if(db.labelDaily[date])delete db.labelDaily[date][id];if(db.labelMeta)delete db.labelMeta[id]}else{db.clients=db.clients.filter(x=>x.id!==id);for(const date of Object.keys(db.orderDaily||{}))if(db.orderDaily[date])delete db.orderDaily[date][id]}
       save();render();toast('客户已删除');
     }
     refresh();
